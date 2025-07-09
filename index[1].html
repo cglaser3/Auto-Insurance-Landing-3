@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Auto Insurance Quote</title>
+  <style>
+    body { font-family: sans-serif; background: #f8f8f8; margin: 0; padding: 0; }
+    main { max-width: 600px; margin: 40px auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+    h2 { text-align: center; }
+    .form-page { display: none; }
+    .form-page.active { display: block; }
+    label { display: block; margin-top: 10px; }
+    input, select, button { width: 100%; padding: 8px; margin-top: 5px; }
+    button:disabled { background: #ccc; }
+  </style>
+</head>
+<body>
+  <main>
+    <div id="progress">Step 1 of 4</div>
+    <form id="quoteForm" onsubmit="handleSubmit(event)">
+      <!-- Step 1 -->
+      <div class="form-page active" id="step1">
+        <h2>Get Your Free Quote</h2>
+        <label>First Name<input name="first_name" required></label>
+        <label>Last Name<input name="last_name" required></label>
+        <label>Email<input type="email" name="email" required></label>
+        <label>Phone Number<input type="tel" name="phone" pattern="\d{10}" required></label>
+        <label>Street Address<input name="address" required></label>
+        <button type="button" onclick="nextStep()" id="step1Next" disabled>Next</button>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="form-page" id="step2">
+        <label>Number of Drivers<input type="number" name="driver_count" required></label>
+        <button type="button" onclick="prevStep()">Back</button>
+        <button type="button" onclick="nextStep()">Next</button>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="form-page" id="step3">
+        <label>Vehicle Year
+          <select name="vehicle_year" id="vehicle_year" required onchange="fetchMakes()">
+            <option value="">Select Year</option>
+            ${[...Array(10)].map((_, i) => `<option value="${2024 - i}">${2024 - i}</option>`).join('')}
+          </select>
+        </label>
+        <label>Make
+          <select name="vehicle_make" id="vehicle_make" required onchange="fetchModels()">
+            <option value="">Select Make</option>
+          </select>
+        </label>
+        <label>Model
+          <select name="vehicle_model" id="vehicle_model" required>
+            <option value="">Select Model</option>
+          </select>
+        </label>
+        <button type="button" onclick="prevStep()">Back</button>
+        <button type="button" onclick="nextStep()">Next</button>
+      </div>
+
+      <!-- Step 4 -->
+      <div class="form-page" id="step4">
+        <label>Current Insurer<input name="current_insurer"></label>
+        <label>Time with Insurer<input name="time_with_insurer"></label>
+        <label>Current Liability Limits</label>
+        <select name="coverage_limits" required>
+          <option value="25000/50000">25,000 / 50,000</option>
+          <option value="50000/100000">50,000 / 100,000</option>
+          <option value="100000/300000">100,000 / 300,000</option>
+          <option value="greater">Greater than 100,000 / 300,000</option>
+        </select>
+        <button type="button" onclick="prevStep()">Back</button>
+        <button type="submit">Submit</button>
+      </div>
+
+      <!-- Confirmation -->
+      <div class="form-page" id="confirmation">
+        <h2>Thank you!</h2>
+        <p>Your quote will be emailed to you within the next 30 minutes.</p>
+      </div>
+    </form>
+  </main>
+
+  <script>
+    let currentStep = 0;
+    const steps = document.querySelectorAll('.form-page');
+
+    function showStep(index) {
+      steps.forEach((step, i) => step.classList.toggle('active', i === index));
+      document.getElementById('progress').textContent = 'Step ' + (index + 1) + ' of 4';
+    }
+
+    function nextStep() {
+      if (currentStep < steps.length - 2) {
+        currentStep++;
+        showStep(currentStep);
+      }
+    }
+
+    function prevStep() {
+      if (currentStep > 0) {
+        currentStep--;
+        showStep(currentStep);
+      }
+    }
+
+    function handleSubmit(e) {
+      e.preventDefault();
+      currentStep++;
+      showStep(currentStep);
+      document.getElementById('progress').style.display = 'none';
+    }
+
+    // Validate Step 1
+    const step1Inputs = document.querySelectorAll('#step1 input');
+    const step1Next = document.getElementById('step1Next');
+    step1Inputs.forEach(input => {
+      input.addEventListener('input', () => {
+        const allFilled = Array.from(step1Inputs).every(i => i.checkValidity());
+        step1Next.disabled = !allFilled;
+      });
+    });
+
+    // Dynamic Vehicle Fetching from NHTSA
+    async function fetchMakes() {
+      const year = document.getElementById('vehicle_year').value;
+      const makeSelect = document.getElementById('vehicle_make');
+      const modelSelect = document.getElementById('vehicle_model');
+      makeSelect.innerHTML = '<option value="">Loading...</option>';
+      modelSelect.innerHTML = '<option value="">Select Model</option>';
+
+      if (!year) return;
+      const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/GetMakesForVehicleModelYear/modelyear/${year}?format=json`);
+      const data = await res.json();
+      const makes = data.Results.map(r => r.MakeName).sort();
+
+      makeSelect.innerHTML = '<option value="">Select Make</option>';
+      makes.forEach(make => {
+        const opt = document.createElement('option');
+        opt.value = make;
+        opt.textContent = make;
+        makeSelect.appendChild(opt);
+      });
+    }
+
+    async function fetchModels() {
+      const year = document.getElementById('vehicle_year').value;
+      const make = document.getElementById('vehicle_make').value;
+      const modelSelect = document.getElementById('vehicle_model');
+      modelSelect.innerHTML = '<option value="">Loading...</option>';
+
+      if (!year || !make) return;
+      const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/GetModelsForMakeYear/make/${make}/modelyear/${year}?format=json`);
+      const data = await res.json();
+      const models = data.Results.map(r => r.Model_Name).sort();
+
+      modelSelect.innerHTML = '<option value="">Select Model</option>';
+      models.forEach(model => {
+        const opt = document.createElement('option');
+        opt.value = model;
+        opt.textContent = model;
+        modelSelect.appendChild(opt);
+      });
+    }
+
+    // Initialize Step 1
+    showStep(0);
+  </script>
+</body>
+</html>
