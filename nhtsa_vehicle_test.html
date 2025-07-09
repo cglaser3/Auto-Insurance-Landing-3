@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Vehicle Selector Test</title>
+  <style>
+    body { font-family: sans-serif; margin: 40px; }
+    label { display: block; margin: 20px 0 5px; }
+    select { width: 300px; padding: 8px; }
+  </style>
+</head>
+<body>
+  <h2>Vehicle Year, Make & Model Selector (NHTSA API)</h2>
+
+  <label for="year">Select Year:</label>
+  <select id="year" onchange="fetchMakes()">
+    <option value="">-- Select Year --</option>
+    <option value="2024">2024</option>
+    <option value="2023">2023</option>
+    <option value="2022">2022</option>
+    <option value="2021">2021</option>
+    <option value="2020">2020</option>
+  </select>
+
+  <label for="make">Select Make:</label>
+  <select id="make" onchange="fetchModels()">
+    <option value="">-- Select Make --</option>
+  </select>
+
+  <label for="model">Select Model:</label>
+  <select id="model">
+    <option value="">-- Select Model --</option>
+  </select>
+
+  <script>
+    async function fetchMakes() {
+      const year = document.getElementById('year').value;
+      const makeSelect = document.getElementById('make');
+      const modelSelect = document.getElementById('model');
+
+      makeSelect.innerHTML = '<option>Loading...</option>';
+      modelSelect.innerHTML = '<option>-- Select Model --</option>';
+
+      if (!year) return;
+
+      try {
+        const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/GetMakesForVehicleModelYear/modelyear/${year}?format=json`);
+        const data = await res.json();
+        const makes = data.Results.map(m => m.MakeName).sort();
+
+        makeSelect.innerHTML = '<option value="">-- Select Make --</option>';
+        makes.forEach(make => {
+          const opt = document.createElement('option');
+          opt.value = make;
+          opt.textContent = make;
+          makeSelect.appendChild(opt);
+        });
+      } catch (err) {
+        makeSelect.innerHTML = '<option>Error loading makes</option>';
+        console.error("Error fetching makes:", err);
+      }
+    }
+
+    async function fetchModels() {
+      const year = document.getElementById('year').value;
+      const make = document.getElementById('make').value;
+      const modelSelect = document.getElementById('model');
+
+      modelSelect.innerHTML = '<option>Loading...</option>';
+
+      if (!year || !make) return;
+
+      try {
+        const res = await fetch(`https://vpic.nhtsa.dot.gov/api/vehicles/GetModelsForMakeYear/make/${make}/modelyear/${year}?format=json`);
+        const data = await res.json();
+        const models = data.Results.map(m => m.Model_Name).sort();
+
+        modelSelect.innerHTML = '<option value="">-- Select Model --</option>';
+        models.forEach(model => {
+          const opt = document.createElement('option');
+          opt.value = model;
+          opt.textContent = model;
+          modelSelect.appendChild(opt);
+        });
+      } catch (err) {
+        modelSelect.innerHTML = '<option>Error loading models</option>';
+        console.error("Error fetching models:", err);
+      }
+    }
+  </script>
+</body>
+</html>
